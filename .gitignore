@@ -1,0 +1,47 @@
+# MATLAB files
+*.asv
+*.m~
+*.mexw64
+*.mexmaci64
+*.mex
+slurm-*.out
+
+# MATLAB autosave files
+*.autosave
+
+# Compiled MEX files
+*.mex*
+
+# MATLAB temporary files
+*.tmp
+*.temp
+
+# MATLAB data files (optional - uncomment if you want to track data files)
+# *.mat
+
+# Results and output directories
+results/
+figures/
+figures_fig/
+data/
+data2/
+my_profile_results/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Log files
+*.log
