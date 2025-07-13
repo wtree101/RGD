@@ -1,5 +1,5 @@
-function Is_success = onetrial(m,d1,d2,r,Xstar,verbose)
-if nargin < 6
+function err = onetrial(m,d1,d2,r,Xstar,init_f,verbose)
+if nargin < 7
     verbose = 0; % Set default value for 'verbose' if not provided
 end
 % groundtruth
@@ -8,7 +8,7 @@ end
 A = normrnd(0,1,m,d1*d2);
 y = A*Xstar(:)/sqrt(m);
 % 
-[X0,U0,S0,V0] = Initialization(y,A,d1,d2,r,m);
+[X0,U0,S0,V0] = init_f(y,A,d1,d2,r,m);
 
 T = 100+1; %100 iter should be enough (and so quicker)
 
@@ -56,7 +56,7 @@ end
     if (verbose==1)
         semilogy(Error_Stand)
     end
-    Is_success = (norm(Xl - Xstar) < 1e-2);
+    err = norm(Xl - Xstar, 'fro') / norm(Xstar, 'fro');
 
 
 end
