@@ -1,13 +1,14 @@
-function [X0,U0,S0,V0] = Initialization_random(y,A,d1,d2,r,m)
+function [X0,U0] = Initialization_random(y,A,d1,d2,r,m)
 %RGD Summary of this function goes here
 %   input
 %  Xl = USV'
 %  Zl 
 % Output
 % Hr(Xl+Ptl*Zl)
-X0 = randn(d1, d2)/n;
-X0 = X0 / norm(X0, 'fro'); % Normalize to have unit Frobenius norm
-X0 = X0 * 0.01;
+U0 = randn(d1, r);
+U0 = U0 / norm(U0, 'fro'); % Normalize to have unit Frobenius norm
+U0 = U0 * 0.01;
+X0 = U0 * U0';
 % for i = 1:m
 %     X0=X0+y(i)*reshape(A(i,:),[d1,d2]);
 % end

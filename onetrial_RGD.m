@@ -1,4 +1,4 @@
-function err = onetrial(m,d1,d2,r,Xstar,init_f,verbose)
+function err = onetrial_RGD(m,d1,d2,r,Xstar,init_flag,verbose)
 if nargin < 7
     verbose = 0; % Set default value for 'verbose' if not provided
 end
@@ -8,7 +8,11 @@ end
 A = normrnd(0,1,m,d1*d2);
 y = A*Xstar(:)/sqrt(m);
 % 
-[X0,U0,S0,V0] = init_f(y,A,d1,d2,r,m);
+if init_flag = 0
+    [X0,U0,S0,V0] = Initialization(y,A,d1,d2,r,m);
+else
+    
+
 
 T = 100+1; %100 iter should be enough (and so quicker)
 
