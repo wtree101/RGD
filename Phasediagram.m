@@ -1,5 +1,5 @@
 %%%%%%%%%%
-d1 = 60; d2 = 80;
+d1 = 10; d2 = 20;
 kappa = 2;
 trial_num = 20; verbose = 1;
 add_flag = 0;
@@ -7,7 +7,7 @@ add_flag = 0;
 % Parameters
 %Max_scale = 14;
 
-r_max = 20; % Adjust r range as needed (e.g., r in [0, 1])
+r_max = 6; % Adjust r range as needed (e.g., r in [0, 1])
 approx = (d1 + d2)*r_max*6;
 
 Max_scale = round(log2(approx));
@@ -20,7 +20,7 @@ full_path = fullfile('data2', data_file);
 if ~exist(full_path, 'dir')
     mkdir(full_path);
 end
-dist = ['data2/',data_file,'/2/'];
+dist = ['data3/',data_file,'/1/'];
 if ~exist(dist, 'dir')
     mkdir(dist);
 end

@@ -1,4 +1,4 @@
-function  err = onetrial_GD(m,d1,d2,r,Xstar,init_flag   ,verbose,mu)
+function  err = onetrial_GD(m,d1,d2,r,Xstar,init_flag,verbose,mu)
     %todo: add lambda
 if nargin < 7
     verbose = 0; % Set default value for 'verbose' if not provided
@@ -20,7 +20,7 @@ else
     [~,U0] = Initialization_random(y,A,d1,d2,r,m);
 end
 
-T = 500+1;
+T = 200+1;
 
 
 
