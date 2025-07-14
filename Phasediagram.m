@@ -1,26 +1,26 @@
 %%%%%%%%%%
-d1 = 10; d2 = 20;
+d1 = 60; d2 = 60;
 kappa = 2;
-trial_num = 20; verbose = 1;
+trial_num = 10; verbose = 1;
 add_flag = 0;
 
 % Parameters
 %Max_scale = 14;
 
-r_max = 6; % Adjust r range as needed (e.g., r in [0, 1])
+r_max = 20; % Adjust r range as needed (e.g., r in [0, 1])
 approx = (d1 + d2)*r_max*6;
-
+T = 500;
 Max_scale = round(log2(approx));
 
 scale_num = 4; %3 8 points 4 17 points
 m_max = 2^Max_scale; % 16384
-r_star = 2;
+r_star = 8;
 data_file = sprintf('err_data_d1_%d_d2_%d_rmax_%d_kappa_%d_rstar_%d', d1, d2, r_max, kappa, r_star);
 full_path = fullfile('data2', data_file);
 if ~exist(full_path, 'dir')
     mkdir(full_path);
 end
-dist = ['data3/',data_file,'/1/'];
+dist = ['data3/',data_file,'/2/'];
 if ~exist(dist, 'dir')
     mkdir(dist);
 end
@@ -62,10 +62,10 @@ disp(['Total unique points to compute: ', num2str(points_num)]);
 
 save([full_path,'/mgrid.mat'],"m_all")
 
-parpool(16);
+%parpool(16);
 %%%%%%%%%%%%%%%%%%%%%%
 
-for r = 1:r_max
+for r = r_star:r_max
     points_r = cell(points_num, 1);
      % Display the parameters being used for debugging
     disp(['Running PhaseTransition with ', ...
@@ -75,10 +75,10 @@ for r = 1:r_max
           ', trials = ', num2str(trial_num), ...
           ', kappa = ', num2str(kappa)]);
     tic;
-    Xstar = groundtruth(d1,d2,r_star,kappa);
+    Xstar = groundtruth(d1,d2,r_star,kappa,1);
     parfor i = 1:points_num
         m = m_all(i);
-        p = multipletrial(m,d1,d2,r,kappa,trial_num,0,Xstar);
+        p = multipletrial(m,d1,d2,r,kappa,trial_num,0,Xstar,1,T);
         points = struct();
         points.r = r; points.m = m; points.p = p;
         %points.Xstar = Xstar; 
@@ -118,7 +118,7 @@ for r = 1:r_max
 
 end
 
-delete(gcp('nocreate'));
+%delete(gcp('nocreate'));
 
 %%%%%%%%%%%%%%%%%
 

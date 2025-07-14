@@ -1,12 +1,20 @@
-function  err = onetrial_GD(m,d1,d2,r,Xstar,init_flag,verbose,mu)
+function  Error_Stand = onetrial_GD(m,d1,d2,r,Xstar,verbose,mu,init_flag,T)
     %todo: add lambda
-if nargin < 7
+if nargin < 6
     verbose = 0; % Set default value for 'verbose' if not provided
 end
 % groundtruth
-if nargin < 8
-    mu = 0.9;
+if nargin < 7
+    mu = 0.2;
 end
+
+if nargin < 8
+    init_flag = 1; % Default to initialization if not provided
+end
+if nargin < 9
+    T =200; % Default to initialization if not provided
+end
+
 
 % random sensing matrix
 A = normrnd(0,1,m,d1*d2);
@@ -17,18 +25,21 @@ if init_flag == 0
 Xl = X0;
 Ul = U0(:,1:r)*sqrt(S0(1:r,1:r));
 else
-    [~,U0] = Initialization_random(y,A,d1,d2,r,m);
+    [X0,U0] = Initialization_random(y,A,d1,d2,r,m);
+    Ul = U0;
+    Xl = X0;
 end
 
-T = 200+1;
+
 
 
 
 % Error Tracking
 Error_Stand = zeros(T,1);
 Error_Stand(1) = norm(X0-Xstar,'fro');
+
 %disp(norm(X0,'fro'));
-s = zeros(m,1);
+%s = zeros(m,1);
 
 % standard RGD
 for l = 2:T
@@ -38,11 +49,12 @@ for l = 2:T
     s = y - (A * Xl(:)) / sqrt(m);
   
     Ul = Ul + mu* (1*(1/sqrt(m)) * reshape(A' * s, [d1, d2]))*Ul;
-    
+    %Xl_new = Ul * Ul'; % Update Xl
     % Track Errors
-    Error_Stand(l) = norm(Xl_new-Xstar,'fro');
+    
     % Swap 
     Xl = Ul*Ul';
+    Error_Stand(l) = norm(Xl-Xstar,'fro')/norm(Xstar,'fro');
 end
 
 
@@ -52,7 +64,7 @@ end
     end
     %Is_success = (norm(Xl - Xstar) < 1e-2);
     
-    err = norm(Xl - Xstar, 'fro') / norm(Xstar, 'fro');
+    %err = norm(Xl - Xstar, 'fro') / norm(Xstar, 'fro');
     
 
 end

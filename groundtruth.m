@@ -1,4 +1,4 @@
-function X = groundtruth(d1,d2,r,kappa)
+function X = groundtruth(d1,d2,r,kappa,symflag)
 
 
 % %output PR transition graph
@@ -15,7 +15,12 @@ function X = groundtruth(d1,d2,r,kappa)
 [U,~] = qr(randn(d1,r),0);
 [V,~] = qr(randn(d2,r),0);
  S = diag(diagonal_values);
- X = U*S*V';
+ if symflag == 0
+    X = U*S*V';
+ else
+    X = U*S*U';
+end
+
 %X = randn(d1,r)*randn(r,d2);
 
 
