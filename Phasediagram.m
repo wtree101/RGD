@@ -1,29 +1,46 @@
 %%%%%%%%%%
 d1 = 60; d2 = 60;
 kappa = 2;
-trial_num = 10; verbose = 1;
+trial_num = 10; verbose = 0;
 add_flag = 0;
-
+problem_flag = 2; % 0 for sensing, 1 for phase retrieval, 2 for symmetric Gaussian sensing; 3 for Richard's example; 4 for PSD full rank
+alg_flag = 0; % 0 for GD, 1 for RGD, 2 for SGD
 % Parameters
 %Max_scale = 14;
-
-r_max = 20; % Adjust r range as needed (e.g., r in [0, 1])
-approx = (d1 + d2)*r_max*6;
-T = 500;
+r_star = 10;
+r_max = 60; % Adjust r range as needed (e.g., r in [0, 1])
+r_grid = 10:10:60;
+%approx = (d1 + d2)*r_max*6;
+%approx = (d1 + d2)*r_max*3;
+approx = floor((d1 + d2)*10);
+T =500;
 Max_scale = round(log2(approx));
 
-scale_num = 4; %3 8 points 4 17 points
+% lambda_list = [1e-16,1e-15,1e-15,1e-13,1e-12,1e-11,1e-10,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2];
+lambda_list = [1e-1,1e-2,1e-3,1e-10];
+
+scale_num = 3; %3 8 points 4 17 points
 m_max = 2^Max_scale; % 16384
-r_star = 8;
-data_file = sprintf('err_data_d1_%d_d2_%d_rmax_%d_kappa_%d_rstar_%d', d1, d2, r_max, kappa, r_star);
-full_path = fullfile('data2', data_file);
+
+
+if alg_flag == 0
+    alg_name = 'GD';
+elseif alg_flag == 1
+    alg_name = 'RGD';
+elseif alg_flag == 2
+    alg_name = 'SGD';
+else
+    alg_name = 'UnknownAlg';
+end
+
+data_file = sprintf('err_data_d1_%d_d2_%d_rmax_%d_kappa_%d_rstar_%d_prob_%d_alg_%s', d1, d2, r_max, kappa, r_star, problem_flag, alg_name);
+full_path = fullfile('data_f', data_file);
 if ~exist(full_path, 'dir')
     mkdir(full_path);
 end
-dist = ['data3/',data_file,'/2/'];
-if ~exist(dist, 'dir')
-    mkdir(dist);
-end
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%
 
@@ -31,6 +48,8 @@ end
 levels = Max_scale-1:-1:Max_scale-scale_num;
 %levels = [Max_scale-1, Max_scale-2, Max_scale-3, Max_scale-4]; % Start at 2^13, go down to 2^10 (adjust as needed)
 m_grids = cell(length(levels), 1);
+%%%%%%%%%%%%%%%%%%%%%%%
+
 
 
 for i = 1:length(levels)
@@ -57,66 +76,118 @@ end
 
 % Total unique m
 m_all = m_all(m_all ~= 0);
+if problem_flag == 3
+   m_all = [d1*d1];
+end
 points_num = length(m_all);
 disp(['Total unique points to compute: ', num2str(points_num)]);
+
+
 
 save([full_path,'/mgrid.mat'],"m_all")
 
 %parpool(16);
 %%%%%%%%%%%%%%%%%%%%%%
 
-for r = r_star:r_max
-    points_r = cell(points_num, 1);
-     % Display the parameters being used for debugging
-    disp(['Running PhaseTransition with ', ...
-          'r = ', num2str(r), ...
-          ', d1 = ', num2str(d1), ...
-          ', d2 = ', num2str(d2), ...
-          ', trials = ', num2str(trial_num), ...
-          ', kappa = ', num2str(kappa)]);
-    tic;
-    Xstar = groundtruth(d1,d2,r_star,kappa,1);
-    parfor i = 1:points_num
-        m = m_all(i);
-        p = multipletrial(m,d1,d2,r,kappa,trial_num,0,Xstar,1,T);
-        points = struct();
-        points.r = r; points.m = m; points.p = p;
-        %points.Xstar = Xstar; 
-        points.trial_num = trial_num;
-        
-        points_r{i} = points;
-        %save the data for graph
-         
-    end
-     t = toc;
-        disp(['Execution time: ', num2str(t), ' seconds']);
-    for i = 1:points_num
-        point = points_r{i};
-        point_name = sprintf('r_%d_m_%d_t_%d.mat', point.r, point.m, point.trial_num);
-        if add_flag==0
-            save([dist, point_name], "point");
-             disp(['Save ', point_name])
-        else
-                   % Load existing point data
-            old_data = load([dist, point_name], 'point');
-            data_old = old_data.point;
-            
-            % Update probability: weighted average
-            p_new = (data_old.p * data_old.trial_num + point.p * point.trial_num) / ...
-                    (data_old.trial_num + point.trial_num);
-            
-            % Update the point structure
-            point.p = p_new;
-            point.trial_num = data_old.trial_num + point.trial_num; % Combine trial counts
-            
-            % Save updated point back to the same file
-            save([dist, point_name], 'point');
-            disp(['Updated ', point_name, ' with p = ', num2str(p_new)]);
-        end
-       
-    end
-
+params.mu = 0.2;% smaller scale
+if problem_flag == 3
+    % Richard's example
+    [A, Xstar] = prob3(d1, 100, r_star, r_star);
+    Xstar = Xstar / norm(Xstar, 'fro'); % Normalize Xstar
+    params.A = A;
+    params.mu = 20; % smaller scale
+else
+    Xstar = groundtruth(d1,d2,r_star,kappa,1); %share the same ground truth with r^* fixed.
 end
+
+
+
+for lambda_idx = 1:length(lambda_list)
+    lambda = lambda_list(lambda_idx);
+    dist = fullfile(full_path, num2str(lambda),'/');
+    if ~exist(dist, 'dir')
+        mkdir(dist);
+    end
+    % Place the rest of your experiment code here if needed
+    for r = r_grid
+        points_r = cell(points_num, 1);
+        % Display the parameters being used for debugging
+        disp(['Running PhaseTransition with ', ...
+            'r = ', num2str(r), ...
+            ', d1 = ', num2str(d1), ...
+            ', d2 = ', num2str(d2), ...
+            ', trials = ', num2str(trial_num), ...
+            ', kappa = ', num2str(kappa), ...
+            ', lambda = ', num2str(lambda), ...
+            ', T = ', num2str(T), ...
+            ', r^* = ', num2str(r_star), ...
+            ', m points = ', num2str(points_num)]);
+        tic;
+        %params.m = m;
+        if alg_flag == 0
+            params.alg = @onetrial_GD; % Use GD
+        elseif alg_flag == 1
+            params.alg = @onetrial_RGD; % Use RGD
+        elseif alg_flag == 2    
+            params.alg = @onetrial_SGD; % Use SGD
+        end
+        
+        params.d1 = d1;
+        params.d2 = d2;
+        params.r = r;
+        params.kappa = kappa;
+        params.trial_num = trial_num;
+        params.Xstar = Xstar;
+        params.lambda = lambda;
+        params.T = T;
+        params.init_flag = 1; % Use random initialization 
+        params.verbose = verbose;
+        params.problem_flag = problem_flag; %
+        parfor i = 1:points_num
+            m = m_all(i); 
+            [err_list,p_list,err_list_f] = multipletrial(m,r,kappa,lambda,params);
+            points = struct();
+            points.r = r; points.m = m; points.e = err_list; points.p = p_list;
+            points.e_f = err_list_f; % Store final error
+            %points.Xstar = Xstar; 
+            points.trial_num = trial_num;
+            
+            points_r{i} = points;
+            %save the data for graph
+            
+        end
+        t = toc;
+            disp(['Execution time: ', num2str(t), ' seconds']);
+        for i = 1:points_num
+            point = points_r{i};
+            point_name = sprintf('r_%d_m_%d_t_%d.mat', point.r, point.m, point.trial_num);
+            if add_flag==0
+                save([dist, point_name], "point");
+                disp(['Save ', point_name])
+            else
+                    % Load existing point data
+                old_data = load([dist, point_name], 'point');
+                data_old = old_data.point;
+                
+                % Update probability: weighted average
+                p_new = (data_old.p * data_old.trial_num + point.p * point.trial_num) / ...
+                        (data_old.trial_num + point.trial_num);
+                
+                % Update the point structure
+                point.p = p_new;
+                point.trial_num = data_old.trial_num + point.trial_num; % Combine trial counts
+                
+                % Save updated point back to the same file
+                save([dist, point_name], 'point');
+                disp(['Updated ', point_name, ' with p = ', num2str(p_new)]);
+            end
+        
+        end
+
+    end
+end
+
+
 
 %delete(gcp('nocreate'));
 
