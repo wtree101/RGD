@@ -2,7 +2,7 @@ import numpy as np
 import math
 default_regularization = 0.01
 
-def get_gradient_BM_loss(X, measurements, ground_truth, regularization=default_regularization, stochastic=False, batch_size=10):
+def get_gradient_BM_loss(X, measurements, ground_truth, regularization=default_regularization, stochastic=False, batch_size=10, eta=1):
     num_measurements = measurements.shape[0]
     # Exhaustive computation for full batch size update
     if not stochastic:
@@ -14,6 +14,8 @@ def get_gradient_BM_loss(X, measurements, ground_truth, regularization=default_r
             #diff_alt += measurements[i] * diff[i]
         #gradient = diff_alt @ X
         gradient = np.einsum('k,kij->ij', diff, 0.5*(measurements+np.transpose(measurements, (0, 2, 1))) @ X)
+        # Normalized by the lipschitz constant of the gradient. To reduce time cost we replace operator norm by Frobenious norm.
+        
     
     # If stochastic, compute gradient on a mini-batch
     else:
@@ -24,7 +26,9 @@ def get_gradient_BM_loss(X, measurements, ground_truth, regularization=default_r
         diff = current_measurements - ground_truth_measurements
         gradient = np.einsum('k,kij->ij', diff, 0.5*(batched_measurements+np.transpose(batched_measurements, (0, 2, 1))) @ X)
         num_measurements = len(batch_indices)
-    return 4 * gradient / num_measurements + 2 * regularization * X
+
+
+    return eta *(gradient / num_measurements) + regularization * X
 
 def get_gradient_convex_loss(M, measurements, ground_truth, regularization=default_regularization):
     num_measurements = measurements.shape[0]
@@ -63,4 +67,20 @@ def get_gradient_BM_loss_l1mimic(X, measurements, ground_truth, regularization=d
         gradient = np.einsum('k,kij->ij', diff, batched_measurements) @ X
         num_measurements = len(batch_indices)
         gradient = gradient * np.abs(diff) / (np.abs(diff) + 1e-8)
-    return 4 * gradient / num_measurements + 2 * regularization * X
+    return  gradient / num_measurements + regularization * X
+
+# We define a function for adjusting regularization based on current error. 
+
+def adaptive_regularization_proto(X, error, default_regularization, count): 
+    # We will use a continuous adaption
+    if True:
+        regularization = default_regularization*(min(0.5, error**1)) 
+    else:
+        regularization = 0
+    return regularization
+
+def No_regularization(X, error, default_regularization, count):
+    return 0
+
+def Constant_regularization(X, error, default_regularization, count):
+    return default_regularization

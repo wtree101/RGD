@@ -39,10 +39,10 @@ def ground_truth(size=default_dimension, rank=default_rank, symmetric=True):
         return U @ U.T 
     else:
         return U @ V.T 
-
 def initialization_X(size=default_dimension, search_rank=default_search_rank, rescale=False):
     X = np.random.randn(size, search_rank)
     if rescale:
         X = X / np.linalg.norm(X, ord='fro')
         X = X * rescale
     return X
+

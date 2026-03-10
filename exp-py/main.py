@@ -2,9 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import Pool, cpu_count
 import time
-from Initialization import initialization_measurements_Ginibre, ground_truth, initialization_X
+from Initialization import initialization_measurements_Ginibre, ground_truth, initialization_X, initialization_measurements_prGaus
 from Optimization import optimization_BM_loss
 from Testing import sample_size_experiment
+from Gradients_and_Heissian import get_gradient_BM_loss, get_gradient_convex_loss, get_gradient_BM_loss_l1mimic, adaptive_regularization_proto
 
 ###!!!!!!!!! alter the function in Optimization.py to turn on or off the l1 mimic gradient !!!!!!!!!!!###
 
@@ -13,14 +14,14 @@ def process_single_search_rank(args):
     """
     Wrapper function for multiprocessing that processes a single search rank.
     """
-    measurements, default_rescale, search_rank, regularization, tolerance, max_iterations, step, trials, lb, ub, jump, size, rank, rescale, nesterov, momentum, stochastic, Thres_1, Thres_2, Thres_3, alt_reg_1, alt_reg_2, alt_reg_3 = args
+    measurements, default_rescale, search_rank, regularization, tolerance, max_iterations, step, trials, lb, ub, jump, size, rank, rescale, nesterov, momentum, stochastic, reg_func = args
 
     print(f"Starting search rank {search_rank}...")
     start_time = time.time()
     
     temp_complexity, temp_error, temp_count, temp_error_document = sample_size_experiment(measurements, default_rescale,
         search_rank, regularization, tolerance=tolerance, max_count=max_iterations, step=step, trials=trials, 
-        lb=lb, ub=ub, jump=jump, size=size, rank=rank, nesterov=nesterov, momentum=momentum, Thres_1=Thres_1, Thres_2=Thres_2, Thres_3=Thres_3, alt_reg_1=alt_reg_1, alt_reg_2=alt_reg_2, alt_reg_3=alt_reg_3
+        lb=lb, ub=ub, jump=jump, size=size, rank=rank, nesterov=nesterov, momentum=momentum, stochastic=stochastic, reg_func=reg_func
     )
 
     
@@ -33,26 +34,21 @@ if __name__ == "__main__":
     size = 100
     rank = 1
     default_rescale = 1
-    default_regularization = 0
-    default_search_rank = 1
+    default_regularization = 1
+    default_search_rank = 5
     lower_bound_complexity = 250
     upper_bound_complexity = 250
     jump_size = 50
-    max_iterations = 1000  
-    default_search_rank_ub= 15
+    max_iterations = 5000
+    default_search_rank_ub= 6
     default_step = 0.5
     trials = 1
     nesterov = True
-    momentum = 0.2
+    momentum = 0
     tolerance = 0
-    stochastic = True  # Set to True if you want to use stochastic optimization
+    stochastic = True # Set to True if you want to use stochastic optimization
     batch_size = 40  # Batch size for stochastic optimization. It's time to make a choice between speed and accuracy.
-    Thres_1=0
-    Thres_2=0
-    Thres_3=0
-    alt_reg_1=0
-    alt_reg_2=0
-    alt_reg_3=0
+    reg_func=adaptive_regularization_proto # Set to None if you want to use fixed regularization, or provide a custom function for adaptive regularization.
     # Choose between sequential and parallel processing
     USE_MULTIPROCESSING = True
     NUM_PROCESSES = min(cpu_count(), 20)  # Use up to 20 processes or number of CPU cores, whichever is smaller
@@ -61,17 +57,18 @@ if __name__ == "__main__":
     if USE_MULTIPROCESSING:
         print(f"Number of processes: {NUM_PROCESSES}")
     
-    ### For simplicity we first set the regularization to 0, and the search rank to 5. In the following experiments we will increase the search rank gradually from 5 to 20.###
+    #The measurements are shared across different search ranks, so we only need to initialize them once. We will use the Ginibre ensemble for initialization, which is a common choice in phase retrieval problems.
     sample_complexity = []
     measurements=[initialization_measurements_Ginibre(i, size, rescale=default_rescale) for i in range(lower_bound_complexity, upper_bound_complexity+jump_size, jump_size)]
-    
+
+  
     if USE_MULTIPROCESSING:
         # Prepare arguments for multiprocessing
-        search_ranks = list(range(default_search_rank, default_search_rank_ub, 1))
+        search_ranks =  [default_search_rank] * 20 #list(range(default_search_rank, default_search_rank_ub, 1))
         args_list = [
             (measurements, default_rescale, search_rank, default_regularization, tolerance, max_iterations, default_step, trials, 
              lower_bound_complexity, upper_bound_complexity, jump_size, 
-             size, rank, default_rescale, nesterov, momentum, stochastic, Thres_1, Thres_2, Thres_3, alt_reg_1, alt_reg_2, alt_reg_3)
+             size, rank, default_rescale, nesterov, momentum, stochastic, reg_func)
             for search_rank in search_ranks
         ]
         

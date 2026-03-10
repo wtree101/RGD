@@ -2,7 +2,7 @@ import numpy as np
 from Gradients_and_Heissian import get_gradient_BM_loss, get_gradient_convex_loss, get_gradient_BM_loss_l1mimic
 import math
 from Initialization import initialization_measurements_Ginibre, ground_truth, initialization_X
-
+from Gradients_and_Heissian import adaptive_regularization_proto
 
 def update_BM_gradient(X, measurements, ground_truth, step_size, gradient):
     # update the matrix X using a fixed step size
@@ -26,7 +26,7 @@ def optimization_convex_loss(X, measurements, ground_truth, step_size=0.01,
         error = np.linalg.norm(M - ground_truth, 'fro')
         count += 1
         
-        if count % 100 == 0 and report:
+        if count % 1 == 0 and report:
             print(f"Iteration {count}, Error: {error}, Gradient: {np.linalg.norm(gradient)}")
         if count > max_count:
             print("Maximum iteration count reached without convergence")
@@ -55,7 +55,14 @@ def optimization_BM_loss(X, measurements, ground_truth, step_size,
             gradient = get_gradient_BM_loss(X, measurements, ground_truth, regularization, stochastic=stochastic, batch_size=batch_size)        
             X = X - step_size * gradient
             
-        error = np.linalg.norm(X @ X.T - ground_truth, 'fro')
+        #U, S, Vh = np.linalg.svd(X, full_matrices=False)
+        #X_app= U @ np.diag(np.maximum(S, 0)) @ Vh
+        #error = np.linalg.norm(X_app @ X_app.T - ground_truth, 'fro')/X.shape[0]
+        error = np.linalg.norm(X @ X.T - ground_truth, 'fro')/X.shape[0]
+        #find the column with the largest norm
+        #index=np.argmax(np.linalg.norm(X, axis=0))
+        #x_approx= X[:,index].reshape(-1,1)
+        #error = np.linalg.norm(x_approx @ x_approx.T - ground_truth, 'fro')/X.shape[0]
         error_document[count] = error
         count += 1
         
@@ -74,25 +81,24 @@ def optimization_BM_loss(X, measurements, ground_truth, step_size,
     return error, X, count, error_document
 
 def optimization_BM_loss_altreg(X, measurements, ground_truth, step_size, 
-                        regularization=0.01, error_tolerance=1e-2, max_count=500, nesterov=False, momentum=1, report=True, grace=2, stochastic=False, batch_size=10, threshold_1=0, threshold_2=0, threshold_3=0, alt_regularization_1=0, alt_regularization_2=0, alt_regularization_3=0):
+                        regularization=0.01, error_tolerance=1e-2, max_count=500, nesterov=False, momentum=1, report=True, grace=2, stochastic=False, batch_size=10, reg_func=None):
     error_document=np.zeros(max_count+1)
     error = error_tolerance + 1000
     count = 0 
     X_prev = X.copy()
     lambda_=lambda_prev=1
     grace = grace
-    step_adj=True
+    step_adj=False
+    #before everthing start we need to know the Lipschitz constant of the gradient, which is given by the operator norm of the measurement operator. We will replace it by the maximum eigenvalue of the measurement matrices.
+    lambda_max = np.mean(np.linalg.norm(measurements, ord='fro', axis=(1, 2)))
+    print(f"Estimated Lipschitz constant: {lambda_max}")
+    eta = 1/(lambda_max**2 + 1e-8)
+    if reg_func is not None:
+        step_adj=True
     while error > error_tolerance:
-        if error < threshold_1:
-            regularization =alt_regularization_1
-        if error < threshold_2:
-            regularization = alt_regularization_2
-        if error < threshold_3:
-            if step_adj:
-                regularization = alt_regularization_3
-                step_adj = False
-            elif regularization > 0.0001:
-                regularization -= alt_regularization_3*0.0001
+        #　The regularization will be adjusted based on the function provided.
+        if step_adj:
+            regularization = reg_func(X, error, regularization, count)
         if nesterov:
             # Nesterov's acceleration
             lambda_=(1+math.sqrt(1+4*(lambda_prev**2)))/2         
@@ -100,11 +106,12 @@ def optimization_BM_loss_altreg(X, measurements, ground_truth, step_size,
             lambda_prev = lambda_   
             Y = X + momentum*omega_ * (X - X_prev) 
             X_prev = X.copy()
-            gradient = get_gradient_BM_loss(Y, measurements, ground_truth, regularization, stochastic=stochastic, batch_size=batch_size)        
-            X = X - step_size * gradient
+            gradient = get_gradient_BM_loss(Y, measurements, ground_truth, regularization, stochastic=stochastic, batch_size=batch_size, eta=eta)
+            # Re condition the gradient based on our regularization. Other wise overflow.        
+            X = X - step_size * gradient *(1/(1+regularization))
         else: 
-            gradient = get_gradient_BM_loss(X, measurements, ground_truth, regularization, stochastic=stochastic, batch_size=batch_size)        
-            X = X - step_size * gradient
+            gradient = get_gradient_BM_loss(X, measurements, ground_truth, regularization, stochastic=stochastic, batch_size=batch_size, eta=eta)        
+            X = X - step_size * gradient * (1/(1+regularization))
         error = np.linalg.norm(X @ X.T - ground_truth, 'fro')/X.shape[0]
         error_document[count] = error
         count += 1
